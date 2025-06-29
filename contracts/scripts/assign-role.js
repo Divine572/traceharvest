@@ -1,8 +1,8 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const contractAddress = "0x50e837c86c4e9C7Ad0dC23DcdCb45B0E9Ce500fE"; // Your deployed contract
-  const userAddress = "0x636E93b33AC5bBb526B993c3dAF01194Cd4C0800"; // Your wallet address
+  const contractAddress = "0xF284bAC77f1f13ea8109734C42e9eC5B32100958"; // Your deployed contract
+  const userAddress = "0x35565c1e702D54318Fe701F98E07C4dbe4311451"; // Your wallet address
   
   console.log("Assigning HARVESTER role...");
   
