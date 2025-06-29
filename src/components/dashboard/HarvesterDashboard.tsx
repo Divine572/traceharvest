@@ -3,39 +3,22 @@
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { usePrivy } from '@privy-io/react-auth';
-import { Plus, Fish, MapPin, Calendar, Package, QrCode } from 'lucide-react';
+import { Plus, Fish, MapPin, Package, QrCode } from 'lucide-react';
+import { useUserBatches, useUserStats } from '@/hooks/useTraceability';
 import CreateBatchForm from './CreateBatchForm';
 import RecentBatches from './RecentBatches';
-import { useHarvesterStats } from '@/hooks/useTraceability';
 
 export default function HarvesterDashboard() {
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showAllBatches, setShowAllBatches] = useState(false);
   const { user } = usePrivy();
   const { address } = useAccount();
   
-  const { 
-    totalUserBatches, 
-    activeBatches, 
-    harvestLocations, 
-    qrCodesGenerated,
-    isLoading: statsLoading 
-  } = useHarvesterStats(address);
+  // Get user's batches and calculate stats
+  const { batches, totalSystemBatches, isLoading } = useUserBatches(address);
+  const stats = useUserStats(batches);
 
-  const handleBatchCreated = () => {
-    setShowCreateForm(false);
-    // The hooks will automatically refetch data
-  };
-
-  const handleCreateBatch = () => {
-    setShowCreateForm(true);
-  };
-
-  const handleViewAllBatches = () => {
-    setShowAllBatches(true);
-    // For now, just show an alert - you can implement a full page later
-    alert('View All Batches - Coming Soon!\n\nThis will show a full-page view of all your batches with advanced filtering and sorting options.');
-  };
+  const handleCreateBatch = () => setShowCreateForm(true);
+  const handleBatchCreated = () => setShowCreateForm(false);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-100 to-blue-100">
@@ -49,7 +32,9 @@ export default function HarvesterDashboard() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Harvester Dashboard</h1>
-                <p className="text-sm text-gray-600">Welcome back, {user?.email?.address?.split('@')[0]}</p>
+                <p className="text-sm text-gray-600">
+                  Welcome back, {user?.email?.address?.split('@')[0] || 'Harvester'}
+                </p>
               </div>
             </div>
             <button
@@ -66,33 +51,33 @@ export default function HarvesterDashboard() {
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <StatCard
+          <StatsCard
             icon={<Package className="h-8 w-8 text-blue-600" />}
             title="Total Batches"
-            value={statsLoading ? "..." : totalUserBatches.toString()}
-            change={totalUserBatches > 0 ? `+${Math.min(totalUserBatches, 3)} this month` : "Get started"}
-            changeType={totalUserBatches > 0 ? "positive" : "neutral"}
+            value={isLoading ? "..." : stats.totalBatches.toString()}
+            subtitle={stats.totalBatches > 0 ? "Your batches" : "Get started"}
+            color="blue"
           />
-          <StatCard
+          <StatsCard
             icon={<Fish className="h-8 w-8 text-green-600" />}
             title="Active Batches"
-            value={statsLoading ? "..." : activeBatches.toString()}
-            change="In supply chain"
-            changeType="neutral"
+            value={isLoading ? "..." : stats.activeBatches.toString()}
+            subtitle={stats.activeBatches > 0 ? "In supply chain" : "No active batches"}
+            color="green"
           />
-          <StatCard
+          <StatsCard
             icon={<MapPin className="h-8 w-8 text-purple-600" />}
             title="Harvest Locations"
-            value={statsLoading ? "..." : harvestLocations.toString()}
-            change={harvestLocations > 0 ? "Lagos Bay, Epe..." : "No locations yet"}
-            changeType="neutral"
+            value={isLoading ? "..." : stats.harvestLocations.toString()}
+            subtitle={stats.harvestLocations > 0 ? "Unique locations" : "No locations yet"}
+            color="purple"
           />
-          <StatCard
+          <StatsCard
             icon={<QrCode className="h-8 w-8 text-orange-600" />}
-            title="QR Codes Generated"
-            value={statsLoading ? "..." : qrCodesGenerated.toString()}
-            change={qrCodesGenerated > 0 ? "100% coverage" : "Create batches first"}
-            changeType={qrCodesGenerated > 0 ? "positive" : "neutral"}
+            title="QR Codes"
+            value={isLoading ? "..." : stats.qrCodesGenerated.toString()}
+            subtitle={stats.qrCodesGenerated > 0 ? "Generated" : "Create batches first"}
+            color="orange"
           />
         </div>
 
@@ -100,13 +85,10 @@ export default function HarvesterDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Recent Batches */}
           <div className="lg:col-span-2">
-            <RecentBatches 
-              onCreateBatch={handleCreateBatch}
-              onViewAll={handleViewAllBatches}
-            />
+            <RecentBatches onCreateBatch={handleCreateBatch} />
           </div>
 
-          {/* Quick Actions */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <QuickActions onCreateBatch={handleCreateBatch} />
             <HarvestTips />
@@ -125,25 +107,23 @@ export default function HarvesterDashboard() {
   );
 }
 
-// Stats Card Component (unchanged)
-function StatCard({ 
+// Stats Card Component
+function StatsCard({ 
   icon, 
   title, 
   value, 
-  change, 
-  changeType 
+  subtitle,
+  color
 }: {
   icon: React.ReactNode;
   title: string;
   value: string;
-  change: string;
-  changeType: 'positive' | 'negative' | 'neutral';
+    subtitle: string;
+    color: 'blue' | 'green' | 'purple' | 'orange';
 }) {
-  const changeColor = {
-    positive: 'text-green-600',
-    negative: 'text-red-600',
-    neutral: 'text-gray-600'
-  }[changeType];
+  const subtitleColor = value === "0" || value === "..."
+    ? 'text-gray-500'
+    : `text-${color}-600`;
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -151,7 +131,7 @@ function StatCard({
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
-          <p className={`text-sm mt-1 ${changeColor}`}>{change}</p>
+          <p className={`text-sm mt-1 ${subtitleColor}`}>{subtitle}</p>
         </div>
         <div className="bg-gray-50 p-3 rounded-full">
           {icon}
@@ -161,7 +141,7 @@ function StatCard({
   );
 }
 
-// Quick Actions Component (unchanged)
+// Quick Actions Component
 function QuickActions({ onCreateBatch }: { onCreateBatch: () => void }) {
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -174,11 +154,17 @@ function QuickActions({ onCreateBatch }: { onCreateBatch: () => void }) {
           <Plus className="h-5 w-5" />
           <span>Create New Batch</span>
         </button>
-        <button className="w-full bg-green-50 text-green-700 p-3 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-3">
+        <button
+          className="w-full bg-green-50 text-green-700 p-3 rounded-lg hover:bg-green-100 transition-colors flex items-center space-x-3"
+          onClick={() => alert('QR Code generation coming soon!')}
+        >
           <QrCode className="h-5 w-5" />
           <span>Generate QR Codes</span>
         </button>
-        <button className="w-full bg-purple-50 text-purple-700 p-3 rounded-lg hover:bg-purple-100 transition-colors flex items-center space-x-3">
+        <button
+          className="w-full bg-purple-50 text-purple-700 p-3 rounded-lg hover:bg-purple-100 transition-colors flex items-center space-x-3"
+          onClick={() => alert('Location update coming soon!')}
+        >
           <MapPin className="h-5 w-5" />
           <span>Update Location</span>
         </button>
@@ -187,7 +173,7 @@ function QuickActions({ onCreateBatch }: { onCreateBatch: () => void }) {
   );
 }
 
-// Harvest Tips Component (unchanged)
+// Harvest Tips Component
 function HarvestTips() {
   return (
     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
